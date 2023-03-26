@@ -1,0 +1,987 @@
+library(dplyr)
+library(psych)
+library(ggplot2)
+library(qgraph)
+library(GGally)
+library(corrplot)
+library(ggpubr)
+library(summarytools)
+library(car)
+data%>%select(age,bmi,children, charges)%>%describe(.,type=2,quant=c(0.25,0.75),IQR=TRUE)
+
+#age
+data%>%select(age)%>%describe(.,type=1,quant=c(0.25,0.75),IQR=TRUE)
+
+
+age_nbins=ceiling((1+3.3*log10(1338)))
+sd_age=sd(data$age); mean_age=mean(data$age)
+n=length(data$bmi);
+age_binwidth=(max(data$age)-min(data$age))/age_nbins
+
+age_hist=ggplot(data,aes(x=age))+geom_histogram(col="#e9ecef",fill="darkviolet",
+            binwidth=age_binwidth)+
+  xlab("")+ylab("Count")+ggtitle("Histogram for Age")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+age_hist
+
+age_boxplot=ggplot(data,aes(x="",y=age))+geom_boxplot(fill="darkviolet")+
+  xlab("")+ylab("Age")+ggtitle("Boxplot for Age")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+age_boxplot
+
+
+ggarrange(age_hist,age_boxplot,nrow=1,ncol=2)
+
+data%>%select(age)%>%describe(.,type=1,quant=c(0.25,0.75),IQR=TRUE)
+
+
+#bmi
+bmi_nbins=ceiling(1+3.3*log10(1338))
+bmi_mean=mean(data$bmi); bmi_sd=sd(data$bmi);
+n=length(data$bmi);
+bmi_binwidth=(max(data$bmi)-min(data$bmi))/bmi_nbins
+
+bmi_hist=ggplot(data,aes(x=bmi))+geom_histogram(fill="cornflowerblue",col="#e9ecef",
+                                                binwidth=bmi_binwidth)+
+  ggtitle("Histogram for BMI")+xlab("")+ylab("Count")+
+  stat_function(fun=function(x) dnorm(x,bmi_mean,bmi_sd)*n*bmi_binwidth,lwd=1,
+                lty=2,col="red")+
+  theme_bw()+theme(plot.title=element_text(hjust=0.5))
+
+bmi_hist
+
+bmi_boxplot=ggplot(data,aes(x="",y=bmi))+geom_boxplot(fill="cornflowerblue")+
+  xlab("")+ylab("BMI")+ggtitle("Boxplot for BMI")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+  
+bmi_boxplot
+
+ggarrange(bmi_hist,bmi_boxplot,nrow=1,ncol=2)
+
+Q0.75=data%>%summarise(quantile(bmi,0.75))
+Q0.25=data%>%summarise(quantile(bmi,0.25))
+IQR=data%>%summarise(IQR(bmi))
+outliers=sum(data$bmi >c(Q0.75+1.5*IQR) | data$bmi<c(Q0.25-1.5*IQR))
+outliers
+data%>%select(bmi)%>%describe(.,type=1,quant=c(0.25,0.75),IQR=TRUE)
+
+#children
+
+data_children=data%>%select(children)%>%table()%>%data.frame
+colnames(data_children)=c("Children","Frequency")
+data_children
+
+children_hist=ggplot(data,aes(x=children))+geom_histogram(fill="lightcoral",col="#e9ecef",bins=6)+
+  ggtitle("Histogram for Children")+xlab("")+ylab("Count")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+children_hist
+
+children_boxplot=ggplot(data,aes(x="",y=children))+geom_boxplot(fill="lightcoral")+
+  xlab("")+ylab("Children")+ggtitle("Boxplot for Children")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(children_hist, children_boxplot, nrow=1,ncol=2)
+
+#charges
+
+charges_nbins=1+3.3*log10(1338)
+charges_mean=mean(data$charges);charges_sd=sd(data$charges)
+n=length(data$charges);
+charges_binwidth=(max(data$charges)-min(data$charges))/charges_nbins
+
+charges_hist=ggplot(data,aes(x=charges))+geom_histogram(col="#e9ecef",fill="seagreen",
+                                                    binwidth=charges_binwidth)+
+  ggtitle("Histogram for Charges")+xlab("")+ylab("Count")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+charges_hist
+
+
+charges_boxplot=ggplot(data,aes(x="",y=charges))+geom_boxplot(fill="seagreen")+
+  xlab("")+ylab("Charges")+ggtitle("Boxplot for Charges")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+charges_boxplot
+
+ggarrange(charges_hist, charges_boxplot, nrow=1,ncol=2)
+
+Q0.75=data%>%summarise(quantile(charges,0.75))
+Q0.25=data%>%summarise(quantile(charges,0.25))
+IQR=data%>%summarise(IQR(charges))
+outliers=sum(data$charges >c(Q0.75+1.5*IQR) | data$charges<c(Q0.25-1.5*IQR))
+outliers
+data%>%select(charges)%>%describe(.,type=1,quant=c(0.25,0.75),IQR=TRUE)
+
+
+#correlation
+round(cor(data[,c(1,3,7)],use="complete.obs"),2)
+corrplot(cor(data[,c(1,3,7)],use="complete.obs"),order="origin",tl.col="black",
+         tl.cex=0.75)
+
+corrplot.mixed(cor(data[,c(1,3,7)],use="complete.obs"))
+
+#pairs plots by category variable
+ggpairs(data,columns=c(1,3,4,7),aes(color=sex,fill=sex,alpha=0.5),
+        upper = list(continuous = "points"))+
+  scale_colour_manual(values=c("indianred1","purple"))+
+  scale_fill_manual(values=c("indianred1","purple"))+theme_bw()+
+  theme(strip.background=element_rect(fill="pink"))
+dev.off()
+
+ggpairs(data,columns=c(1,3,4,7),aes(color=smoker,fill=smoker,alpha=0.5),
+        upper = list(continuous = "points"))+
+  scale_colour_manual(values=c('turquoise3','royalblue1'))+
+scale_fill_manual(values=c('turquoise3','royalblue1'))+theme_bw()+
+  theme(strip.background =element_rect(fill="pink") )
+
+
+ggpairs(data,columns=c(1,3,4,7),aes(color=region,fill=region, alpha=0.5),
+        upper = list(continuous = "points"))+theme_bw()+
+  theme(strip.background=element_rect(fill="pink"))
+
+
+data%>%group_by(sex)%>%select(children)%>%table()%>%data.frame()
+
+
+a=ggplot(data,aes(x=children,fill=sex))+geom_histogram(col="#e9ecef",bins=6)+
+  facet_wrap(~sex)+theme_bw()+ggtitle("Histogram of Children by sex")+xlab("")+
+  ylab("Count")+
+  theme(legend.position="none",
+        strip.background = element_rect(fill="pink"),
+        plot.title=element_text(hjust=0.5))
+
+b=ggplot(data,aes(x=children,fill=smoker))+geom_histogram(col="#e9ecef",bins=6)+
+  facet_wrap(~smoker)+theme_bw()+ggtitle("Histogram of Children by smoker")+
+  xlab("")+ylab("Count")+
+  theme(legend.position="none",
+        strip.background=element_rect(fill="pink"),
+        plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,nrow=2,ncol=1)
+
+ggplot(data,aes(x=children,fill=region))+geom_histogram(col="#e9ecef",bins=6)+
+  facet_wrap(~region)+scale_fill_brewer(palette="Set2")+theme_bw()+
+  ggtitle("Histogram of Children by region")+xlab("")+ylab("Count")+
+  theme(legend.position="none",
+        strip.background=element_rect(fill="pink"),
+        plot.title=element_text(hjust=0.5))
+
+
+## B ##
+
+#sex
+
+table=data%>%select(sex)%>%table()%>%data.frame()
+colnames(table)=c("class","freq")
+sex_table=cbind(table,round(table$freq/1338*100,2))
+colnames(sex_table)=c("class","freq","percent")
+
+data%>%select(sex)%>%freq()
+
+pie_sex=ggplot(sex_table,aes(x="",y=freq,fill=class))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart for Sex")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+
+bar_sex=ggplot(sex_table,aes(x=class,y=freq,fill=class))+geom_bar(stat="identity")+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot for Sex")+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5),
+                   legend.position="none")
+
+
+ggarrange(pie_sex,bar_sex,nrow=1,ncol=2)
+
+#smoker
+
+table2=data%>%select(smoker)%>%table()%>%data.frame()
+colnames(table2)=c("class","freq")
+smoker_table=cbind(table2,round(table2$freq/1338*100,2))
+colnames(smoker_table)=c("class","freq","percent")
+
+data%>%select(smoker)%>%freq()
+
+pie_smoker=ggplot(smoker_table,aes(x="",y=freq,fill=class))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label=percent),position=position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart for Smoker")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+bar_smoker=ggplot(smoker_table,aes(x=class,y=freq,fill=class))+geom_bar(stat="identity")+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot for Smoker")+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5),
+                   legend.position="none")
+
+ggarrange(pie_smoker,bar_smoker,nrow=1,ncol=2)
+
+#region
+
+table3=data%>%select(region)%>%table()%>%data.frame()
+colnames(table3)=c("class","freq")
+region_table=cbind(table3,round(table2$freq/1338*100,2))
+colnames(region_table)=c("class","freq","percent")
+
+data%>%select(region)%>%freq()
+
+pie_region=ggplot(region_table,aes(x="",y=freq,fill=class))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label=percent),position=position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Region"))+
+  coord_polar("y",start=0)+
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Pie chart of Region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+pie_region
+
+bar_region=ggplot(region_table,aes(x=class,y=freq,fill=class))+geom_bar(stat="identity")+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot of Smoker")+
+  scale_fill_brewer(palette="Set1")+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5),
+                   legend.position="none")
+bar_region
+
+ggarrange(pie_region,bar_region,nrow=1,ncol=2)
+
+#pairsplot
+
+#sex/smoker
+
+sex_smoker=data%>%select(sex,smoker)%>%table()%>%data.frame()
+colnames(sex_smoker)=c("sex","smoker","freq")
+
+data%>%group_by(smoker)%>%select(sex)%>%freq()
+
+sex_smoker=as.data.frame(cbind(sex_smoker,percent=c(51.41,48.59,41.97,58.03)))
+a=sex_smoker%>%filter(smoker=="no")%>%select(sex,freq,percent)%>%
+ggplot(.,aes(x="",y=freq,fill=sex))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart of Sex for Non-Smokers")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+
+b=sex_smoker%>%filter(smoker=="yes")%>%select(sex,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=sex))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart of Sex for Smokers")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+ggarrange(a,b,nrow=1,ncol=2)
+
+sex_smoker%>%select(sex,smoker,freq)%>%
+  ggplot(.,aes(x=smoker,y=freq,fill=sex))+geom_bar(stat="identity",position=position_dodge())+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot for Sex")+
+  guides(fill=guide_legend(title="Sex"))+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5))
+
+
+
+#sex/region
+
+
+sex_region=data%>%select(sex,region)%>%table()%>%data.frame()
+colnames(sex_region)=c("sex","region","freq")
+data%>%group_by(region)%>%select(sex)%>%freq()
+
+sex_region=as.data.frame(cbind(sex_region,percent=c(49.69,50.31,50.46,49.54,
+                                                    48.08,51.92,49.85,50.15)))
+
+a=sex_region%>%filter(region=="northeast")%>%select(sex,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=sex))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart of Sex for Northeast region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+
+b=sex_region%>%filter(region=="northwest")%>%select(sex,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=sex))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart of Sex for  Northwest region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+c=sex_region%>%filter(region=="southeast")%>%select(sex,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=sex))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart of Sex for Southeast region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+d=sex_region%>%filter(region=="southwest")%>%select(sex,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=sex))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Sex"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  ggtitle("Pie chart of Sex for Southwest region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+ggarrange(a,b,c,d,nrow=2,ncol=2)
+
+sex_region%>%select(sex,region,freq)%>%
+  ggplot(.,aes(x=region,y=freq,fill=sex))+geom_bar(stat="identity",position=position_dodge())+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot of Sex")+
+  guides(fill=guide_legend(title="Sex"))+
+  scale_fill_manual(values=c("purple","darkgoldenrod1"))+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5))
+
+
+
+#smokers/sex
+
+smoker_sex=data%>%select(smoker,sex)%>%table()%>%data.frame()
+colnames(smoker_sex)=c("smoker","sex","freq")
+data%>%group_by(sex)%>%select(smoker)%>%freq()
+
+smoker_sex=as.data.frame(cbind(smoker_sex,percent=c(82.63,17.37,76.48,23.52)))
+a=smoker_sex%>%filter(sex=="female")%>%select(smoker,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=smoker))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart of Smoker variable for Female")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+b=sex_smoker%>%filter(sex=="male")%>%select(smoker,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=smoker))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart of Smoker Variable for Male")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+
+ggarrange(a,b,nrow=1,ncol=2)
+
+sex_smoker%>%select(smoker,sex,freq)%>%
+  ggplot(.,aes(x=sex,y=freq,fill=smoker))+geom_bar(stat="identity",position=position_dodge())+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot of Smokers for Male")+
+  guides(fill=guide_legend(title="Smoker"))+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5))
+
+
+#smokers/region
+
+smoker_region=data%>%select(smoker,region)%>%table()%>%data.frame()
+colnames(smoker_region)=c("smoker","region","freq")
+data%>%group_by(region)%>%select(smoker)%>%freq()
+
+smoker_region=as.data.frame(cbind(smoker_region,percent=c(79.32,20.68,82.15,17.85 ,
+                                                    75.00,25.00,82.15,17.85)))
+
+a=smoker_region%>%filter(region=="northeast")%>%select(smoker,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=smoker))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart of smoker for Northeast region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+b=smoker_region%>%filter(region=="northwest")%>%select(smoker,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=smoker))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart of Sex for  Northwest region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+c=smoker_region%>%filter(region=="southeast")%>%select(smoker,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=smoker))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart of Smoker for Southeast region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+d=smoker_region%>%filter(region=="southwest")%>%select(smoker,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=smoker))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Smoker"))+
+  coord_polar("y",start=0)+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  ggtitle("Pie chart of Smoker for Southwest region")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+ggarrange(a,b,c,d,nrow=2,ncol=2)
+
+
+smoker_region%>%select(smoker,region,freq)%>%
+  ggplot(.,aes(x=region,y=freq,fill=smoker))+geom_bar(stat="identity",position=position_dodge())+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot of Smoker variable")+
+  guides(fill=guide_legend(title="Smoker"))+
+  scale_fill_manual(values=c("olivedrab3","orangered3"))+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5))
+
+#region/sex
+
+region_sex=data%>%select(region,sex)%>%table()%>%data.frame()
+colnames(region_sex)=c("region","sex","freq")
+data%>%group_by(sex)%>%select(region)%>%freq()
+
+region_sex=as.data.frame(cbind(region_sex,percent=c(24.32,24.77,26.44,24.47 ,
+                                                          24.11,23.82,27.96,24.11)))
+
+a=region_sex%>%filter(sex=="female")%>%select(region,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=region))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Region"))+
+  coord_polar("y",start=0)+
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Pie chart of Region for Female")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+b=region_sex%>%filter(sex=="male")%>%select(region,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=region))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Region"))+
+  coord_polar("y",start=0)+
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Pie chart of Region for Male")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+ggarrange(a,b,nrow=1,ncol=2)
+
+region_sex%>%select(region,sex,freq)%>%
+  ggplot(.,aes(x=sex,y=freq,fill=region))+geom_bar(stat="identity",position=position_dodge())+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot of of Region variable")+
+  
+  scale_fill_brewer(palette="Set1")+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5))
+
+
+# region/smoker
+region_smoker=data%>%select(region,smoker)%>%table()%>%data.frame()
+colnames(region_smoker)=c("region","smoker","freq")
+data%>%group_by(smoker)%>%select(region)%>%freq()
+
+region_smoker=as.data.frame(cbind(region_smoker,percent=c(24.15,25.09,25.66,25.09,
+                                                    24.45,21.17,33.21,21.17)))
+
+a=region_smoker%>%filter(smoker=="no")%>%select(region,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=region))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Region"))+
+  coord_polar("y",start=0)+
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Pie chart of Region for Non-Smokers")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+b=region_smoker%>%filter(smoker=="yes")%>%select(region,freq,percent)%>%
+  ggplot(.,aes(x="",y=freq,fill=region))+geom_bar(stat="identity")+
+  geom_col(color="black")+
+  geom_label(aes(label = percent),position = position_stack(vjust = 0.5),
+             show.legend = FALSE)+
+  guides(fill=guide_legend(title="Region"))+
+  coord_polar("y",start=0)+
+  scale_fill_brewer(palette="Set1")+
+  ggtitle("Pie chart of Region for Smokers")+theme_void()+
+  theme(plot.title=element_text(hjust = 0.5))
+
+ggarrange(a,b,nrow=1,ncol=2)
+
+jpeg("image24.jpeg",width=8,height=4,units="in",res=500)
+region_smoker%>%select(region,smoker,freq)%>%
+  ggplot(.,aes(x=smoker,y=freq,fill=region))+geom_bar(stat="identity",position=position_dodge())+
+  xlab("")+ylab("Frequency")+ggtitle("Barplot of Region")+
+  guides(fill=guide_legend(title="Region"))+
+  scale_fill_brewer(palette="Set1")+
+  theme_bw()+theme(plot.title=element_text(hjust = 0.5))
+
+## C ##
+
+#charges
+n=1338; p=(1:n)/n-0.5/n; 
+mean_charges=mean(data$charges); sd_charges=sd(data$charges)
+mean_charges; sd_charges
+
+ggplot(data,aes(x=p,y=sort(pnorm(charges,mean_charges,sd_charges))))+
+  geom_point(col="seagreen")+geom_abline(intercept = 0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ks.test(data$age,"pnorm",mean_age,sd_age)
+
+#age
+
+mean_age=mean(data$age);sd_age=sd(data$age)
+mean_age;sd_age
+
+ggplot(data,aes(x=p,y=sort(pnorm(age,mean_age,sd_age))))+
+  geom_point(col="darkviolet")+geom_abline(intercept = 0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Age")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ks.test(data$charges,"pnorm",mean_charges,sd_charges)
+
+#sex
+
+data$sex=as.factor(data$sex)
+describeBy(data$charges,data$sex)
+mean_charges_male=13956.75
+ggplot(data,aes(x=charges,fill=sex))+
+  geom_histogram(col="#e9ecef",bins=15,position=position_dodge())+
+  facet_wrap(~sex)+theme_bw()+xlab("Charges")+ylab("Count")+
+  theme(strip.background = element_rect(fill="lightyellow"),
+        legend.position="none")
+
+
+data%>%select(sex)%>%table()
+n1=662;n2=676;p1=(1:n1)/n1-0.5/n1;p2=(1:n2)/n2-0.5/n2
+a=data%>%filter(sex=="female")%>%
+ggplot(.,aes(x=p1,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="#F8766D")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Female")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+b=data%>%filter(sex=="male")%>%
+ggplot(.,aes(x=p2,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="#69b3a2")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Male")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,nrow=1)
+
+data%>%filter(sex=="male")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+      Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+data%>%filter(sex=="female")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+
+#bmi
+
+mean_bmi=mean(data$bmi);sd_bmi=sd(data$bmi)
+mean(data$bmi);sd(data$bmi)
+
+ggplot(data,aes(x=p,y=sort(pnorm(bmi,mean_bmi,sd_bmi))))+
+  geom_point(col="cornflowerblue")+geom_abline(intercept = 0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for BMI")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ks.test(data$bmi,"pnorm",mean_bmi,sd_bmi)
+
+ggplot(data,aes(x=children,y=charges))+geom_point(col="coral")+
+  xlab("BMI")+ylab("Charges")+theme_bw()
+
+#children
+mean_children=mean(data$children);sd_children=sd(data$children)
+n=1338; p=(1:n)/n-0.5/n; 
+
+ggplot(data,aes(x=p,y=sort(pnorm(children,mean_children,sd_children))))+
+         geom_point(col="cornflowerblue")+geom_abline(intercept = 0,slope=1)+
+         xlab("Observed Cumulative Probability")+
+         ylab("Expected Cumulative Probability")+
+         ggtitle("P-P plot for BMI")+theme_bw()+
+         theme(plot.title=element_text(hjust=0.5))
+      
+ks.test(data$children,"pnorm",mean_children,sd_children)
+
+#smoker
+
+ggplot(data,aes(x=charges,fill=smoker))+
+  geom_histogram(col="#e9ecef",bins=15,position=position_dodge())+
+  facet_wrap(~smoker)+theme_bw()+xlab("Charges")+ylab("Count")+
+  ggtitle("Histogram of Charges by Smoker")+
+  scale_fill_manual(values=c("darkseagreen2","hotpink1"))+
+  theme(strip.background = element_rect(fill="lightyellow"),
+        legend.position="none",
+        plot.title = element_text(hjust=0.5))
+
+data%>%select(smoker)%>%table()
+n3=1064;n4=274;p3=(1:n3)/n3-0.5/n3;p4=(1:n4)/n4-0.5/n4
+
+a=data%>%filter(smoker=="no")%>%
+  ggplot(.,aes(x=p3,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="darkseagreen2")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Non-Smokers")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+b=data%>%filter(smoker=="yes")%>%
+  ggplot(.,aes(x=p4,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="hotpink1")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Smokers")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,nrow=1)
+
+data%>%filter(smoker=="no")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+data%>%filter(smoker=="yes")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+
+
+# region
+
+ggplot(data,aes(x=charges,fill=region))+
+  geom_histogram(col="#e9ecef",bins=15,position=position_dodge())+
+  facet_wrap(~region)+theme_bw()+xlab("Charges")+ylab("Count")+
+  ggtitle("Histogram of Charges by Region")+
+  scale_fill_brewer(palette="Set1")+
+  theme(strip.background = element_rect(fill="lightyellow"),
+        legend.position="none",
+        plot.title = element_text(hjust=0.5))
+
+data%>%select(region)%>%table()
+
+n5=324;n6=325;p5=(1:n5)/n5-0.5/n5;p6=(1:n6)/n6-0.5/n6
+n7=364;n8=325;p7=(1:n7)/n7-0.5/n7;p8=(1:n8)/n8-0.5/n8
+
+a=data%>%filter(region=="northeast")%>%
+  ggplot(.,aes(x=p5,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="firebrick1")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Northeast")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+b=data%>%filter(region=="northwest")%>%
+  ggplot(.,aes(x=p6,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="cornflowerblue")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Northwest")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+
+c=data%>%filter(region=="southeast")%>%
+  ggplot(.,aes(x=p7,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="forestgreen")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Southeast")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+d=data%>%filter(region=="southwest")%>%
+  ggplot(.,aes(x=p8,y=sort(pnorm(charges,mean(charges),sd(charges)))))+
+  geom_point(col="purple")+geom_abline(intercept=0,slope=1)+
+  xlab("Observed Cumulative Probability")+
+  ylab("Expected Cumulative Probability")+
+  ggtitle("P-P plot for Charges and Southwest")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,c,d,nrow=2,ncol=2)
+
+data%>%filter(region=="northeast")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+data%>%filter(region=="northwest")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+
+data%>%filter(region=="southeast")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+data%>%filter(region=="southwest")%>%select(charges)%>%
+  summarise(n=tally(.),Mean=mean(charges),
+            sdev=sd(charges),
+            Kolmogorov.p.value=ks.test(charges,"pnorm",Mean,sdev)$p.value)
+
+rcorr(cbind(data$age,data$bmi,data$children,data$charges),type="spearman")
+cor(data[,c(1,3,4,7)],method="spearman")
+
+corrplot.mixed(cor(data[,c(1,3,4,7)],method="spearman"),
+               tl.col="black",tl.cex=0.75)
+
+data$sex=as.factor(data$sex)
+wilcox.test(data$charges~data$sex, paired=FALSE)
+
+data$smoker=as.factor(data$smoker)
+wilcox.test(data$charges~data$smoker,paired=FALSE)
+
+
+data$region=as.factor(data$region)
+kruskal.test(data$charges,data$region)
+
+## D ##
+library(Hmisc)
+library(MASS)
+
+#fit1
+
+data$sex=as.factor(data$sex)
+data$smoker=as.factor(data$smoker)
+data$region=as.factor(data$region)
+
+fit1=lm(charges~age+sex+bmi+children+smoker+region,data)
+summary(fit1)
+
+Standardized.Residuals=rstandard(fit1)
+n=Standardized.Residuals %>% length
+Mean.Stand=mean(Standardized.Residuals)
+Sd.Stand=sd(Standardized.Residuals)
+
+
+a=ggplot(data,aes(x=Standardized.Residuals))+
+geom_histogram(col="#e9ecef",fill="#3E68FF",bins=15)+
+  xlab("")+ylab("Count")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+p=(1:n)/n - 0.5/n
+
+b=ggplot(data,aes(x=p, y=sort(pnorm(Standardized.Residuals, Mean.Stand, Sd.Stand))))+
+  geom_point(col="#3E68FF")+
+  geom_abline(intercept = 0, slope = 1)+
+  ylab("Expected Cum Probabilities")+
+  xlab("Observed Cum Probabilities")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,nrow=1)
+ks.test(Standardized.Residuals, "pnorm", Mean.Stand, Sd.Stand)
+
+ggplot(data, aes(x=age, y=studres(fit1)))+
+  geom_point(col="#3E68FF")+
+  geom_hline(yintercept=c(-2,2),linetype="dashed",color ="red")+
+  ylab("Standardized.Residuals")+
+  xlab("Age")+
+  theme_bw()
+
+durbinWatsonTest(fit1)
+
+#fit2
+ggplot(data,aes(x=age,y=charges,color=smoker))+
+  geom_point()+xlab("Age")+ylab("Charges")+
+  theme_bw()+
+  scale_color_manual(values=c("hotpink1","aquamarine4"))
+
+
+fit2=lm(charges~age+smoker,data=data)
+
+summary(fit2)
+
+Standardized.Residuals=rstandard(fit2)
+n=Standardized.Residuals %>% length
+Mean.Stand=mean(Standardized.Residuals)
+Sd.Stand=sd(Standardized.Residuals)
+
+
+a=ggplot(data,aes(x=Standardized.Residuals))+
+  geom_histogram(col="#e9ecef",fill="#3E68FF",bins=15)+
+  xlab("")+ylab("Count")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+p=(1:n)/n - 0.5/n
+
+b=ggplot(data,aes(x=p, y=sort(pnorm(Standardized.Residuals, Mean.Stand, Sd.Stand))))+
+  geom_point(col="#3E68FF")+
+  geom_abline(intercept = 0, slope = 1)+
+  ylab("Expected Cum Probabilities")+
+  xlab("Observed Cum Probabilities")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+ggarrange(a,b,nrow=1,ncol=2)
+
+ks.test(Standardized.Residuals, "pnorm", Mean.Stand, Sd.Stand)
+
+ggplot(data, aes(x=age, y=studres(fit2)))+
+  geom_point(col="#3E68FF")+
+  geom_hline(yintercept=c(-2,2),linetype="dashed",color ="red")+
+  ylab("Standardized.Residuals")+
+  xlab("Age")+
+  theme_bw()
+
+
+durbinWatsonTest(fit2)
+
+#fit3
+
+ggplot(data,aes(x=bmi,y=charges,color=smoker))+
+  geom_point()+xlab("BMI")+ylab("Charges")+
+  theme_bw()+
+  scale_color_manual(values=c("hotpink1","aquamarine4"))
+
+
+fit3=lm(charges~bmi*smoker, data=data)
+summary(fit3)
+
+Standardized.Residuals=rstandard(fit3)
+n=Standardized.Residuals %>% length
+Mean.Stand=mean(Standardized.Residuals)
+Sd.Stand=sd(Standardized.Residuals)
+
+
+a=ggplot(data,aes(x=Standardized.Residuals))+
+  geom_histogram(col="#e9ecef",fill="#3E68FF",bins=15)+
+  xlab("")+ylab("Count")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+p=(1:n)/n - 0.5/n
+
+b=ggplot(data,aes(x=p, y=sort(pnorm(Standardized.Residuals, Mean.Stand, Sd.Stand))))+
+  geom_point(col="#3E68FF")+
+  geom_abline(intercept = 0, slope = 1)+
+  ylab("Expected Cum Probabilities")+
+  xlab("Observed Cum Probabilities")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,nrow=1,ncol=2)
+
+ks.test(Standardized.Residuals, "pnorm", Mean.Stand, Sd.Stand)
+jpeg(filename="image.jpeg",width=10,height=6,units="in",res=300)
+ggplot(data, aes(x=bmi, y=studres(fit3)))+
+  geom_point(col="#3E68FF")+
+  geom_hline(yintercept=c(-2,2),linetype="dashed",color ="red")+
+  ylab("Standardized.Residuals")+
+  xlab("BMI")+
+  theme_bw()
+dev.off()
+
+durbinWatsonTest(fit3)
+
+#fit4
+b=boxcox(fit3)
+lambda=b$x
+lik=b$y
+bc=cbind(lambda,lik)
+bc[order(-lik),]
+
+a=ggplot(data,aes(x=bmi,y=charges,color=smoker))+
+  geom_point()+xlab("BMI")+ylab("Charges")+
+  scale_color_manual(values=c("hotpink1","aquamarine4"))+
+  theme_bw()
+
+b=ggplot(data,aes(x=bmi,y=(charges^0.4646-1)/0.4646,color=smoker))+
+  geom_point()+xlab("BMI")+ylab("Charges transformation")+
+  scale_color_manual(values=c("hotpink1","aquamarine4"))+
+  theme_bw()
+
+ggarrange(a,b,nrow=1)
+
+fit4=lm((charges^0.4646-1)/0.4646~bmi*smoker,data=data)
+summary(fit4)
+
+Standardized.Residuals=rstandard(fit4)
+n=Standardized.Residuals %>% length
+Mean.Stand=mean(Standardized.Residuals)
+Sd.Stand=sd(Standardized.Residuals)
+
+a=ggplot(data,aes(x=Standardized.Residuals))+
+  geom_histogram(col="#e9ecef",fill="#3E68FF",bins=15)+
+  xlab("")+ylab("Count")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+p=(1:n)/n - 0.5/n
+
+b=ggplot(data,aes(x=p, y=sort(pnorm(Standardized.Residuals, Mean.Stand, Sd.Stand))))+
+  geom_point(col="#3E68FF")+
+  geom_abline(intercept = 0, slope = 1)+
+  ylab("Expected Cum Probabilities")+
+  xlab("Observed Cum Probabilities")+
+  ggtitle("P-P plot for residuals")+theme_bw()+
+  theme(plot.title=element_text(hjust=0.5))
+
+ggarrange(a,b,nrow=1,ncol=2)
+
+ks.test(Standardized.Residuals, "pnorm", Mean.Stand, Sd.Stand)
+
+jpeg(filename="image.jpeg",width=10,height=6,units="in",res=300)
+ggplot(data, aes(x=bmi, y=studres(fit3)))+
+  geom_point(col="#3E68FF")+
+  geom_hline(yintercept=c(-2,2),linetype="dashed",color="red")+
+  ylab("Standardized.Residuals")+
+  xlab("BMI")+
+  theme_bw()
+
+durbinWatsonTest(fit4)
+
+data=as.data.frame(data)
+ggplot(data,aes(x=bmi,y=(charges^0.4646-1)/0.4646,color=smoker))+
+  geom_point()+xlab("BMI")+ylab("Charges Transformation")+
+  scale_color_manual(values=c("hotpink1","aquamarine4"))+
+  geom_smooth(method="lm")+
+  theme_bw()
+
